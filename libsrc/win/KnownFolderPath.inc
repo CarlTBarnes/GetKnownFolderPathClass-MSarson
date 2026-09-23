@@ -6,6 +6,7 @@ KnownFolder:E_InvalidArgument    EQUATE(80070057h)
 KnownFolder:E_InsufficientBuffer EQUATE(8007007Ah)
 
 ! Values accepted by KnownFolderPath.GetFolder.
+KnownFolder:FirstFolder          EQUATE(1)
 KnownFolder:Desktop              EQUATE(1)
 KnownFolder:Documents            EQUATE(2)
 KnownFolder:Downloads            EQUATE(3)
@@ -29,6 +30,7 @@ KnownFolder:Links                EQUATE(20)
 KnownFolder:SavedGames           EQUATE(21)
 KnownFolder:Contacts             EQUATE(22)
 KnownFolder:Searches             EQUATE(23)
+KnownFolder:LastFolder           EQUATE(23)
 
 KNOWNFOLDERID GROUP,TYPE
 Data1           ULONG
