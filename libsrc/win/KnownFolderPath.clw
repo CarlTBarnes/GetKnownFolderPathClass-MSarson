@@ -64,22 +64,30 @@ UnicodePath LONG
 Result      LONG
   CODE
   CLEAR(FolderPath)
+  Result = SELF.QueryFolder(FolderId, Flags, UnicodePath)
+  IF Result = KnownFolder:Success
+    Result = SELF.ConvertWidePath(UnicodePath, FolderPath)
+    CoTaskMemFree(UnicodePath)
+  END
+  RETURN Result
+
+! Calls SHGetKnownFolderPath. On success WidePath holds the UTF-16 path, which
+! the caller must free with CoTaskMemFree. On failure it is 0 and LastError is set.
+KnownFolderPath.QueryFolder PROCEDURE(*KNOWNFOLDERID FolderId, LONG Flags, *LONG WidePath)
+Result LONG
+  CODE
   SELF.LastErrorText = ''
+  WidePath = 0
   IF ~SELF.LoadShellApi()
     RETURN KnownFolder:E_NotInitialized
   END
-
-  UnicodePath = 0
-  Result = SHGetKnownFolderPath(FolderId, Flags, 0, UnicodePath)
+  Result = SHGetKnownFolderPath(FolderId, Flags, 0, WidePath)
   IF Result <> KnownFolder:Success
     ! The API may still return a buffer on failure; freeing NULL is harmless.
-    CoTaskMemFree(UnicodePath)
+    CoTaskMemFree(WidePath)
+    WidePath = 0
     SELF.SetApiError('SHGetKnownFolderPath failed', Result)
-    RETURN Result
   END
-
-  Result = SELF.ConvertWidePath(UnicodePath, FolderPath)
-  CoTaskMemFree(UnicodePath)
   RETURN Result
 
 ! Returns the folder as a string, or blank on failure (call LastError for the

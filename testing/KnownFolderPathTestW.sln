@@ -1,0 +1,15 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+# Clarion 2.1.0.2447
+Project("{12B76EC0-1D7B-4FA7-A7D0-C524288B48A1}") = "KnownFolderPathTestW", "KnownFolderPathTestW.cwproj", "{18675ECA-BB00-497C-84F9-27CACAE412E8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{18675ECA-BB00-497C-84F9-27CACAE412E8}.Debug|Win32.Build.0 = Debug|Win32
+		{18675ECA-BB00-497C-84F9-27CACAE412E8}.Debug|Win32.ActiveCfg = Debug|Win32
+	EndGlobalSection
+EndGlobal

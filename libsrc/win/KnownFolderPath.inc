@@ -48,16 +48,17 @@ Data4           BYTE,DIM(8)
                END
 
 KnownFolderPath CLASS,TYPE,MODULE('KnownFolderPath.clw'),LINK('KnownFolderPath.clw',_KFPLinkMode_),DLL(_KFPDllMode_)
-Destruct            PROCEDURE
+Destruct            PROCEDURE,VIRTUAL
 GetFolder           PROCEDURE(LONG FolderNo, *CSTRING FolderPath, LONG Flags=0),LONG,PROC
 GetKnownFolderPath  PROCEDURE(*KNOWNFOLDERID FolderId, *CSTRING FolderPath, LONG Flags=0),LONG,PROC
 GetPath             PROCEDURE(LONG FolderNo, BOOL AddBackslash=FALSE, LONG Flags=0),STRING
 LastError           PROCEDURE(),STRING
 SetFolderId         PROCEDURE(LONG FolderNo, *KNOWNFOLDERID FolderId),BOOL
+QueryFolder         PROCEDURE(*KNOWNFOLDERID FolderId, LONG Flags, *LONG WidePath),LONG,PROTECTED
 ConvertWidePath     PROCEDURE(LONG WidePath, *CSTRING FolderPath),LONG,PROTECTED
 SetApiError         PROCEDURE(STRING Context, LONG HResult),PROTECTED
 LoadShellApi        PROCEDURE(),BOOL,PRIVATE
 ShellModule         LONG,PRIVATE
 PathBuffer          &CSTRING,PRIVATE
-LastErrorText       STRING(512),PRIVATE
+LastErrorText       STRING(512),PROTECTED
                     END
