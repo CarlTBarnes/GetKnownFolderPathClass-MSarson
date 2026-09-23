@@ -4,6 +4,14 @@ KnownFolder:E_Fail               EQUATE(80004005h)
 KnownFolder:E_NotInitialized     EQUATE(800401F0h)
 KnownFolder:E_InvalidArgument    EQUATE(80070057h)
 KnownFolder:E_InsufficientBuffer EQUATE(8007007Ah)
+KnownFolder:E_NoMapping          EQUATE(80070459h)   ! Path cannot be shown in the ANSI code page
+
+! Flags accepted by GetFolder, GetKnownFolderPath and GetPath (KF_FLAG_ values).
+! Combine them with +.
+KnownFolderFlag:None             EQUATE(0)
+KnownFolderFlag:DefaultPath      EQUATE(00000400h)   ! Default location, ignoring redirection
+KnownFolderFlag:DontVerify       EQUATE(00004000h)   ! Don't check that the folder exists
+KnownFolderFlag:Create           EQUATE(00008000h)   ! Create the folder if it doesn't exist
 
 ! Values accepted by KnownFolderPath.GetFolder.
 KnownFolderNo:FirstFolder          EQUATE(1)
@@ -41,11 +49,15 @@ Data4           BYTE,DIM(8)
 
 KnownFolderPath CLASS,TYPE,MODULE('KnownFolderPath.clw'),LINK('KnownFolderPath.clw',_KFPLinkMode_),DLL(_KFPDllMode_)
 Destruct            PROCEDURE
-GetFolder           PROCEDURE(LONG FolderNo, *CSTRING FolderPath),LONG,PROC
-GetKnownFolderPath  PROCEDURE(*KNOWNFOLDERID FolderId, *CSTRING FolderPath),LONG,PROC
+GetFolder           PROCEDURE(LONG FolderNo, *CSTRING FolderPath, LONG Flags=0),LONG,PROC
+GetKnownFolderPath  PROCEDURE(*KNOWNFOLDERID FolderId, *CSTRING FolderPath, LONG Flags=0),LONG,PROC
+GetPath             PROCEDURE(LONG FolderNo, BOOL AddBackslash=FALSE, LONG Flags=0),STRING
 LastError           PROCEDURE(),STRING
 SetFolderId         PROCEDURE(LONG FolderNo, *KNOWNFOLDERID FolderId),BOOL
+ConvertWidePath     PROCEDURE(LONG WidePath, *CSTRING FolderPath),LONG,PROTECTED
+SetApiError         PROCEDURE(STRING Context, LONG HResult),PROTECTED
 LoadShellApi        PROCEDURE(),BOOL,PRIVATE
 ShellModule         LONG,PRIVATE
-LastErrorText       STRING(255),PRIVATE
+PathBuffer          &CSTRING,PRIVATE
+LastErrorText       STRING(512),PRIVATE
                     END
