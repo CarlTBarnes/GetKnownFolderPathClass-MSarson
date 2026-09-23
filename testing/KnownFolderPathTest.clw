@@ -42,8 +42,8 @@ Folder          LONG
   SYSTEM{PROP:FontName}='Segoe UI' ; SYSTEM{PROP:FontSize}=11
   SYSTEM{PROP:MsgModeDefault}=MSGMODE:CANCOPY
   
-  !Currently  = KnownFolder:Desktop     TO KnownFolder:Searches
-  LOOP Folder = KnownFolder:FirstFolder TO KnownFolder:LastFolder
+  !Currently  = KnownFolderNo:Desktop     TO KnownFolderNo:Searches
+  LOOP Folder = KnownFolderNo:FirstFolder TO KnownFolderNo:LastFolder
     IF Folders.GetFolder(Folder, FolderPath) = KnownFolder:Success
       Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': <9>' & FolderPath & '|'
     ELSE
