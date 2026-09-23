@@ -21,9 +21,10 @@ startup on systems without the export.
 ## Installation
 
 Copy `KnownFolderPath.inc` and `KnownFolderPath.clw` from `libsrc\win` into
-your Clarion `LIBSRC\WIN` folder, for example
-`C:\Clarion\Clarion12\LIBSRC\WIN`. The default redirection file already
-searches that folder, so nothing else needs to be set up.
+your Clarion `Accessory\LIBSRC\WIN` folder, for example
+`C:\Clarion\Clarion12\Accessory\LIBSRC\WIN`. Third-party classes belong in
+`Accessory` rather than Clarion's own `LIBSRC\WIN`. The default redirection
+file already searches that folder, so nothing else needs to be set up.
 
 To use the class without copying it, add this repository's `libsrc\win` folder
 to your redirection file instead. The test project does this with a local
