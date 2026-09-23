@@ -31,7 +31,7 @@ FolderNames     GROUP
                   STRING('Contacts       ')
                   STRING('Searches       ')
                 END
-FolderName      STRING(15),DIM(KnownFolder:LastFolder),OVER(FolderNames)
+FolderName      STRING(15),DIM(KnownFolderNo:LastFolder),OVER(FolderNames)
 
 FolderPath      CSTRING(32767)
 Report          STRING(8000)
