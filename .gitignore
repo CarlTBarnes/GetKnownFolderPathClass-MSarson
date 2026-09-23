@@ -1,0 +1,27 @@
+# Clarion build output
+*.exe
+*.dll
+*.lib
+*.exp
+*.obj
+*.map
+*.pdb
+*.ilk
+*.tds
+*.err
+*.log
+*.bak
+*.tmp
+
+# Clarion IDE user settings
+*.suo
+*.user
+*.v11suo
+*.v12suo
+*.v13suo
+.vs/
+
+# Clarion build folders and caches
+obj/
+map/
+*.sln.cache
