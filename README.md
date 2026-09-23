@@ -74,6 +74,15 @@ Folders    KnownFolderPath
 the supplied `CSTRING` contains the ANSI path. Call `LastError` for a
 human-readable failure reason.
 
+`KnownFolder:FirstFolder` and `KnownFolder:LastFolder` mark the range of
+supported folders, so you can loop over all of them:
+
+```clarion
+  LOOP Folder = KnownFolder:FirstFolder TO KnownFolder:LastFolder
+    ...
+  END
+```
+
 Each `KnownFolderPath` object loads `SHELL32.DLL` the first time it is used
 and releases it in its destructor. Windows counts these references, so the DLL
 stays loaded while any object still needs it. Any number of objects can be
@@ -82,5 +91,20 @@ created and disposed in any order.
 Because the wrapper is 32-bit, Windows redirects `KnownFolder:ProgramFiles` to
 `C:\Program Files (x86)` on 64-bit Windows. This is normal WOW64 behaviour.
 
+## Adding a folder
+
+1. In `KnownFolderPath.inc`, add a `KnownFolder:` equate with the next number,
+   and set `KnownFolder:LastFolder` to that number.
+2. In `SetFolderId` in `KnownFolderPath.clw`, add an `OF` branch that calls
+   `SetGuid` with the folder's `FOLDERID_` GUID from the Windows SDK header
+   `KnownFolders.h`. A hex constant that starts with a letter needs a leading
+   `0`, for example `0FDD39AD0h`.
+3. In `testing\KnownFolderPathTest.clw`, add the folder's name to the
+   `FolderNames` group, padded to 15 characters. The name array is sized by
+   `KnownFolder:LastFolder`, so the test won't compile until you do this.
+
+## Source format
+
 The source is ANSI, targeted at 32-bit Windows, and stored with CRLF line
-endings.
+endings. The Clarion compiler rejects files with LF-only line endings, and the
+repository's `.gitattributes` makes sure clones and ZIP downloads get CRLF.

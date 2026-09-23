@@ -31,7 +31,7 @@ FolderNames     GROUP
                   STRING('Contacts       ')
                   STRING('Searches       ')
                 END
-FolderName      STRING(15),DIM(23),OVER(FolderNames)
+FolderName      STRING(15),DIM(KnownFolder:LastFolder),OVER(FolderNames)
 
 FolderPath      CSTRING(32767)
 Report          STRING(8000)
@@ -47,7 +47,7 @@ Folder          LONG
     IF Folders.GetFolder(Folder, FolderPath) = KnownFolder:Success
       Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': <9>' & FolderPath & '|'
     ELSE
-      Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': <9,9>Error: ' & Folders.LastError() & '|'
+      Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': <9>Error: ' & Folders.LastError() & '|'
     END
   END
   MESSAGE(CLIP(Report), 'KnownFolderPath test')
