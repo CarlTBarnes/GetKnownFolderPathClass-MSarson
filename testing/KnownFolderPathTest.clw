@@ -39,11 +39,15 @@ Folders         KnownFolderPath
 Folder          LONG
 
   CODE
-  LOOP Folder = KnownFolder:Desktop TO KnownFolder:Searches
+  SYSTEM{PROP:FontName}='Segoe UI' ; SYSTEM{PROP:FontSize}=11
+  SYSTEM{PROP:MsgModeDefault}=MSGMODE:CANCOPY
+  
+  !Currently  = KnownFolder:Desktop     TO KnownFolder:Searches
+  LOOP Folder = KnownFolder:FirstFolder TO KnownFolder:LastFolder
     IF Folders.GetFolder(Folder, FolderPath) = KnownFolder:Success
-      Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': ' & FolderPath & '|'
+      Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': <9>' & FolderPath & '|'
     ELSE
-      Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': ' & Folders.LastError() & '|'
+      Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': <9,9>Error: ' & Folders.LastError() & '|'
     END
   END
   MESSAGE(CLIP(Report), 'KnownFolderPath test')
