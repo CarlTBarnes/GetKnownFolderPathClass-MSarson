@@ -2,8 +2,11 @@
 
   INCLUDE('KnownFolderPath.inc'),ONCE
 
-SHGFP_TYPE_CURRENT EQUATE(0)
-CP_ACP             EQUATE(0)
+CP_ACP                        EQUATE(0)
+WC_NO_BEST_FIT_CHARS          EQUATE(00000400h)
+FORMAT_MESSAGE_IGNORE_INSERTS EQUATE(00000200h)
+FORMAT_MESSAGE_FROM_SYSTEM    EQUATE(00001000h)
+MAX_LONG_PATH                 EQUATE(32767)
 
 ! Filled by GetProcAddress. The DLL attribute on the SHGetKnownFolderPath
 ! prototype makes the compiler call through this variable, so its NAME must
@@ -15,11 +18,18 @@ fpSHGetKnownFolderPath LONG,NAME('SHGetKnownFolderPath')
 
   MAP
     SetGuid(*KNOWNFOLDERID FolderId, ULONG D1, USHORT D2, USHORT D3, BYTE B1, BYTE B2, BYTE B3, BYTE B4, BYTE B5, BYTE B6, BYTE B7, BYTE B8)
+    WideToAnsi(LONG WidePath, *CSTRING FolderPath),LONG
+    HResultFromWin32(LONG ErrorCode),LONG
+    HexLong(LONG Value),STRING
+    BufferAddress(*STRING Source),LONG
     MODULE('KERNEL32.DLL')
       LoadLibraryA(*CSTRING),LONG,PASCAL,RAW,NAME('LoadLibraryA')
       GetProcAddress(LONG,*CSTRING),LONG,PASCAL,RAW,NAME('GetProcAddress')
       FreeLibrary(LONG),BOOL,PASCAL,RAW,PROC,NAME('FreeLibrary')
       WideCharToMultiByte(LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG),LONG,PASCAL,RAW,NAME('WideCharToMultiByte')
+      GetShortPathNameW(LONG,LONG,LONG),LONG,PASCAL,RAW,NAME('GetShortPathNameW')
+      FormatMessageA(LONG,LONG,LONG,LONG,LONG,LONG,LONG),LONG,PASCAL,RAW,NAME('FormatMessageA')
+      GetLastError(),LONG,PASCAL,NAME('GetLastError')
     END
     MODULE('OLE32.DLL')
       CoTaskMemFree(LONG),PASCAL,RAW,NAME('CoTaskMemFree')
@@ -35,20 +45,22 @@ KnownFolderPath.Destruct PROCEDURE()
     FreeLibrary(SELF.ShellModule)
     SELF.ShellModule = 0
   END
+  IF NOT SELF.PathBuffer &= NULL
+    DISPOSE(SELF.PathBuffer)
+  END
 
-KnownFolderPath.GetFolder PROCEDURE(LONG FolderNo, *CSTRING FolderPath)
+KnownFolderPath.GetFolder PROCEDURE(LONG FolderNo, *CSTRING FolderPath, LONG Flags=0)
 FolderId LIKE(KNOWNFOLDERID)
   CODE
   CLEAR(FolderPath)
   IF ~SELF.SetFolderId(FolderNo, FolderId)
-    SELF.LastErrorText = 'Unknown known-folder equate.'
+    SELF.LastErrorText = 'Unknown KnownFolderNo value: ' & FolderNo
     RETURN KnownFolder:E_InvalidArgument
   END
-  RETURN SELF.GetKnownFolderPath(FolderId, FolderPath)
+  RETURN SELF.GetKnownFolderPath(FolderId, FolderPath, Flags)
 
-KnownFolderPath.GetKnownFolderPath PROCEDURE(*KNOWNFOLDERID FolderId, *CSTRING FolderPath)
+KnownFolderPath.GetKnownFolderPath PROCEDURE(*KNOWNFOLDERID FolderId, *CSTRING FolderPath, LONG Flags=0)
 UnicodePath LONG
-BytesNeeded LONG
 Result      LONG
   CODE
   CLEAR(FolderPath)
@@ -58,37 +70,85 @@ Result      LONG
   END
 
   UnicodePath = 0
-  Result = SHGetKnownFolderPath(FolderId, SHGFP_TYPE_CURRENT, 0, UnicodePath)
+  Result = SHGetKnownFolderPath(FolderId, Flags, 0, UnicodePath)
   IF Result <> KnownFolder:Success
     ! The API may still return a buffer on failure; freeing NULL is harmless.
     CoTaskMemFree(UnicodePath)
-    SELF.LastErrorText = 'SHGetKnownFolderPath failed. HRESULT: ' & Result
+    SELF.SetApiError('SHGetKnownFolderPath failed', Result)
     RETURN Result
   END
 
-  BytesNeeded = WideCharToMultiByte(CP_ACP, 0, UnicodePath, -1, 0, 0, 0, 0)
-  IF BytesNeeded = 0
-    CoTaskMemFree(UnicodePath)
-    SELF.LastErrorText = 'Could not convert the Unicode path to ANSI.'
-    RETURN KnownFolder:E_Fail
-  END
-  IF BytesNeeded > SIZE(FolderPath)
-    CoTaskMemFree(UnicodePath)
-    SELF.LastErrorText = 'The supplied CSTRING is too small for the path.'
-    RETURN KnownFolder:E_InsufficientBuffer
-  END
-
-  IF WideCharToMultiByte(CP_ACP, 0, UnicodePath, -1, ADDRESS(FolderPath), SIZE(FolderPath), 0, 0) = 0
-    CoTaskMemFree(UnicodePath)
-    SELF.LastErrorText = 'Could not copy the ANSI path.'
-    RETURN KnownFolder:E_Fail
-  END
+  Result = SELF.ConvertWidePath(UnicodePath, FolderPath)
   CoTaskMemFree(UnicodePath)
-  RETURN KnownFolder:Success
+  RETURN Result
+
+! Returns the folder as a string, or blank on failure (call LastError for the
+! reason). The text is kept in a buffer owned by the object.
+KnownFolderPath.GetPath PROCEDURE(LONG FolderNo, BOOL AddBackslash=FALSE, LONG Flags=0)
+  CODE
+  IF SELF.PathBuffer &= NULL
+    SELF.PathBuffer &= NEW CSTRING(MAX_LONG_PATH)
+  END
+  IF SELF.GetFolder(FolderNo, SELF.PathBuffer, Flags) <> KnownFolder:Success
+    RETURN ''
+  END
+  IF AddBackslash AND SUB(SELF.PathBuffer, LEN(SELF.PathBuffer), 1) <> '\'
+    RETURN SELF.PathBuffer & '\'
+  END
+  RETURN SELF.PathBuffer
 
 KnownFolderPath.LastError PROCEDURE()
   CODE
   RETURN CLIP(SELF.LastErrorText)
+
+! Converts a UTF-16 path to the ANSI code page. When a character has no ANSI
+! equivalent, falls back to the short (8.3) path, which is plain ASCII. Never
+! returns a path with substituted characters, because it would not exist.
+KnownFolderPath.ConvertWidePath PROCEDURE(LONG WidePath, *CSTRING FolderPath)
+Result     LONG
+ShortPath  &STRING
+ShortChars LONG
+  CODE
+  Result = WideToAnsi(WidePath, FolderPath)
+  IF Result = KnownFolder:E_NoMapping
+    ShortChars = GetShortPathNameW(WidePath, 0, 0)
+    IF ShortChars > 0
+      ShortPath &= NEW STRING(ShortChars * 2)
+      IF INRANGE(GetShortPathNameW(WidePath, BufferAddress(ShortPath), ShortChars), 1, ShortChars - 1)
+        Result = WideToAnsi(BufferAddress(ShortPath), FolderPath)
+      END
+      DISPOSE(ShortPath)
+    END
+  END
+
+  CASE Result
+  OF KnownFolder:Success
+    RETURN Result
+  OF KnownFolder:E_NoMapping
+    SELF.LastErrorText = 'The path contains characters that the ANSI code page cannot show, and it has no short (8.3) name.'
+  OF KnownFolder:E_InsufficientBuffer
+    SELF.LastErrorText = 'The supplied CSTRING is too small for the path.'
+  ELSE
+    SELF.SetApiError('Could not convert the path to ANSI', Result)
+  END
+  CLEAR(FolderPath)
+  RETURN Result
+
+! Sets LastError to the context, Windows' description of the HRESULT and the
+! HRESULT in hex.
+KnownFolderPath.SetApiError PROCEDURE(STRING Context, LONG HResult)
+MsgText CSTRING(512)
+Chars   LONG
+  CODE
+  Chars = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM + FORMAT_MESSAGE_IGNORE_INSERTS, 0, HResult, 0, ADDRESS(MsgText), SIZE(MsgText), 0)
+  LOOP WHILE Chars > 0 AND INLIST(VAL(MsgText[Chars]), 10, 13, 32)
+    Chars -= 1
+  END
+  IF Chars > 0
+    SELF.LastErrorText = Context & ': ' & SUB(MsgText, 1, Chars) & ' (HRESULT ' & HexLong(HResult) & 'h)'
+  ELSE
+    SELF.LastErrorText = Context & ' (HRESULT ' & HexLong(HResult) & 'h)'
+  END
 
 KnownFolderPath.SetFolderId PROCEDURE(LONG FolderNo, *KNOWNFOLDERID FolderId)
   CODE
@@ -184,3 +244,55 @@ SetGuid PROCEDURE(*KNOWNFOLDERID FolderId, ULONG D1, USHORT D2, USHORT D3, BYTE 
   FolderId.Data4[6] = B6
   FolderId.Data4[7] = B7
   FolderId.Data4[8] = B8
+
+! Converts with WC_NO_BEST_FIT_CHARS so that a character with no exact ANSI
+! equivalent is reported as unmappable instead of silently becoming a
+! look-alike letter (Polish L-with-stroke becoming a plain L, for example).
+WideToAnsi PROCEDURE(LONG WidePath, *CSTRING FolderPath)
+UsedDefault LONG
+Bytes       LONG
+  CODE
+  Bytes = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, WidePath, -1, 0, 0, 0, ADDRESS(UsedDefault))
+  IF Bytes = 0
+    RETURN HResultFromWin32(GetLastError())
+  END
+  IF UsedDefault
+    RETURN KnownFolder:E_NoMapping
+  END
+  IF Bytes > SIZE(FolderPath)
+    RETURN KnownFolder:E_InsufficientBuffer
+  END
+  IF WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, WidePath, -1, ADDRESS(FolderPath), SIZE(FolderPath), 0, ADDRESS(UsedDefault)) = 0
+    RETURN HResultFromWin32(GetLastError())
+  END
+  IF UsedDefault
+    RETURN KnownFolder:E_NoMapping
+  END
+  RETURN KnownFolder:Success
+
+HResultFromWin32 PROCEDURE(LONG ErrorCode)
+  CODE
+  IF ErrorCode = 0
+    RETURN KnownFolder:E_Fail
+  END
+  IF ErrorCode < 0
+    RETURN ErrorCode
+  END
+  RETURN BOR(BAND(ErrorCode, 0FFFFh), 80070000h)
+
+HexLong PROCEDURE(LONG Value)
+Digits STRING('0123456789ABCDEF')
+Hex    STRING(8)
+I      LONG
+  CODE
+  LOOP I = 8 TO 1 BY -1
+    Hex[I] = Digits[BAND(Value, 0Fh) + 1]
+    Value = BSHIFT(Value, -4)
+  END
+  RETURN Hex
+
+! ADDRESS() of a &STRING reference is ambiguous, so take the address of the
+! data through a *STRING parameter instead.
+BufferAddress PROCEDURE(*STRING Source)
+  CODE
+  RETURN ADDRESS(Source)

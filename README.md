@@ -77,8 +77,60 @@ inside the class, and `GetKnownFolderPath` accepts one directly if you need a
 folder that has no equate.
 
 `GetFolder` returns an HRESULT. A return value of `KnownFolder:Success` means
-the supplied `CSTRING` contains the ANSI path. Call `LastError` for a
-human-readable failure reason.
+the supplied `CSTRING` contains the ANSI path. On any failure the `CSTRING` is
+left blank.
+
+### Getting the path as a string
+
+`GetPath` returns the path directly, or a blank string on failure. Pass `TRUE`
+as the second parameter to add a trailing backslash:
+
+```clarion
+SaveFile = Folders.GetPath(KnownFolderNo:Downloads, TRUE) & 'Report.pdf'
+IF Folders.GetPath(KnownFolderNo:Documents) = ''
+  MESSAGE(Folders.LastError())
+END
+```
+
+### Flags
+
+`GetFolder`, `GetKnownFolderPath` and `GetPath` take an optional `Flags`
+parameter. Add flags together to combine them.
+
+| Flag | Effect |
+| --- | --- |
+| `KnownFolderFlag:Create` | Creates the folder if it doesn't exist yet |
+| `KnownFolderFlag:DontVerify` | Returns the path without checking that the folder exists |
+| `KnownFolderFlag:DefaultPath` | Returns the default location, ignoring any redirection |
+
+Without flags, Windows checks that the folder exists and the call fails if it
+doesn't. Folders such as Saved Games, Contacts or Links may not exist on a new
+or managed profile.
+
+```clarion
+Rc = Folders.GetFolder(KnownFolderNo:SavedGames, FolderPath, KnownFolderFlag:Create)
+```
+
+### Errors
+
+`LastError` returns a readable reason for the last failure. When Windows
+reports the error, it includes Windows' own description and the HRESULT in hex,
+for example:
+
+```
+SHGetKnownFolderPath failed: The system cannot find the file specified. (HRESULT 80070002h)
+```
+
+### Characters outside the ANSI code page
+
+Windows returns paths in Unicode, and the class converts them to the ANSI code
+page. If the path contains a character the code page can't show, such as a
+Polish or Cyrillic user name on a Western European system, the class returns
+the folder's short (8.3) path instead, for example `C:\Users\ADAM~1\Documents`.
+That path is plain ASCII and refers to the same folder.
+
+If the volume has no short names, the call fails with `KnownFolder:E_NoMapping`
+rather than return a path with substituted characters, which would not exist.
 
 `KnownFolderNo:FirstFolder` and `KnownFolderNo:LastFolder` mark the range of
 supported folders, so you can loop over all of them:

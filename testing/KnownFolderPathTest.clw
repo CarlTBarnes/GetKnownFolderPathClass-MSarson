@@ -50,4 +50,5 @@ Folder          LONG
       Report = CLIP(Report) & CLIP(FolderName[Folder]) & ': <9>Error: ' & Folders.LastError() & '|'
     END
   END
+  Report = CLIP(Report) & '|GetPath with backslash: <9>' & Folders.GetPath(KnownFolderNo:Downloads, TRUE)
   MESSAGE(CLIP(Report), 'KnownFolderPath test')
